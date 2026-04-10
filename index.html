@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Riemann Sums — Integration Visualizer</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0b0c10;
+    --surface: #13141a;
+    --surface2: #1c1e28;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #eeeef0;
+    --muted: #8a8c99;
+    --faint: #3a3c4a;
+    --blue: #4a9eff;
+    --blue-dim: rgba(74,158,255,0.15);
+    --teal: #2ec4a0;
+    --teal-dim: rgba(46,196,160,0.15);
+    --coral: #ff7052;
+    --coral-dim: rgba(255,112,82,0.15);
+    --accent: #c8a96e;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-weight: 400;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .everything { position: relative; z-index: 1; }
+
+  /* ─── HERO ─── */
+  .hero {
+    text-align: center;
+    padding: 4rem 1.5rem 2.5rem;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .hero-badge {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid rgba(200,169,110,0.3);
+    padding: 5px 14px;
+    border-radius: 100px;
+    margin-bottom: 1.5rem;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .hero h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2.4rem, 7vw, 4rem);
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+
+  .hero h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .hero p {
+    margin-top: 1rem;
+    font-size: 1rem;
+    color: var(--muted);
+    line-height: 1.7;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+
+  .limits-tag {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    padding: 6px 16px;
+    border-radius: 6px;
+    margin-top: 1.2rem;
+    animation: fadeUp 0.6s 0.3s ease both;
+  }
+
+  /* ─── FUNCTION SELECTOR ─── */
+  .fn-picker {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding: 0 1.5rem 2rem;
+    animation: fadeUp 0.6s 0.35s ease both;
+  }
+
+  .fn-card {
+    flex: 1;
+    min-width: 160px;
+    max-width: 220px;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 1.25rem 1rem 1rem;
+    cursor: pointer;
+    transition: transform 0.18s, border-color 0.18s, background 0.18s;
+    text-align: center;
+    user-select: none;
+  }
+
+  .fn-card:hover { transform: translateY(-3px); }
+
+  .fn-card.active-0 { border-color: var(--blue); background: var(--blue-dim); }
+  .fn-card.active-1 { border-color: var(--teal); background: var(--teal-dim); }
+  .fn-card.active-2 { border-color: var(--coral); background: var(--coral-dim); }
+
+  .fn-icon {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.9rem;
+    font-style: italic;
+    margin-bottom: 6px;
+    line-height: 1;
+  }
+  .fn-card:nth-child(1) .fn-icon { color: var(--blue); }
+  .fn-card:nth-child(2) .fn-icon { color: var(--teal); }
+  .fn-card:nth-child(3) .fn-icon { color: var(--coral); }
+
+  .fn-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 500;
+    margin-bottom: 3px;
+  }
+  .fn-desc { font-size: 11.5px; color: var(--muted); }
+
+  /* ─── MAIN PANEL ─── */
+  .panel {
+    max-width: 900px;
+    margin: 0 auto 3rem;
+    padding: 0 1.25rem;
+    animation: fadeUp 0.6s 0.4s ease both;
+  }
+
+  .panel-inner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 1.5rem;
+  }
+
+  /* ─── CONTROLS ─── */
+  .controls-row {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ctrl-block { display: flex; align-items: center; gap: 10px; }
+
+  .ctrl-block label {
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+
+  .ctrl-block .n-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    min-width: 30px;
+    color: var(--text);
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 130px;
+    height: 4px;
+    background: var(--faint);
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+  .method-group { display: flex; gap: 4px; }
+
+  .method-btn {
+    padding: 5px 13px;
+    border-radius: 8px;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 11.5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .method-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.25); }
+  .method-btn.active {
+    background: rgba(200,169,110,0.18);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ─── STATS STRIP ─── */
+  .stats-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 1.25rem;
+  }
+
+  .stat {
+    background: var(--surface2);
+    border-radius: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+  }
+  .stat-label {
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 4px;
+  }
+  .stat-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 1.15rem;
+    font-weight: 500;
+  }
+  .stat-value.c0 { color: var(--blue); }
+  .stat-value.c1 { color: var(--teal); }
+  .stat-value.c2 { color: var(--coral); }
+
+  /* ─── CANVAS ─── */
+  .canvas-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  canvas#plot { display: block; width: 100%; }
+
+  /* ─── FORMULA STRIP ─── */
+  .formula-strip {
+    margin-top: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .formula-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 8px;
+  }
+  .converge-msg {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* ─── THEORY SECTION ─── */
+  .theory {
+    max-width: 900px;
+    margin: 0 auto 4rem;
+    padding: 0 1.25rem;
+    animation: fadeUp 0.6s 0.5s ease both;
+  }
+
+  .theory-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+  }
+
+  .theory-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.25rem;
+  }
+
+  .theory-card h3 {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .theory-card .integral {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.6rem;
+    font-style: italic;
+    line-height: 1.3;
+    margin-bottom: 8px;
+  }
+
+  .theory-card p { font-size: 13px; color: var(--muted); line-height: 1.65; }
+
+  .t0 .integral { color: var(--blue); }
+  .t1 .integral { color: var(--teal); }
+  .t2 .integral { color: var(--coral); }
+
+  .theory-card .exact-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    margin-top: 8px;
+    padding: 6px 10px;
+    background: rgba(200,169,110,0.1);
+    border-radius: 6px;
+    display: inline-block;
+  }
+
+  /* ─── FOOTER ─── */
+  footer {
+    text-align: center;
+    padding: 2rem 1.5rem 3rem;
+    font-size: 12px;
+    color: var(--faint);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.05em;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* mobile tweaks */
+  @media (max-width: 500px) {
+    .stats-strip { grid-template-columns: 1fr 1fr; }
+    .stats-strip .stat:last-child { grid-column: 1 / -1; }
+    .controls-row { gap: 12px; }
+    input[type=range] { width: 90px; }
+  }
+</style>
+</head>
+<body>
+<div class="everything">
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="hero-badge">EE Project · IIT Bombay</div>
+    <h1>Integration as<br><em>Riemann Sums</em></h1>
+    <p>Select a function, adjust the number of rectangles,<br>and watch the sum converge to the exact integral.</p>
+    <div class="limits-tag">∫ from a = −7.5 &nbsp;to&nbsp; b = 7.5</div>
+  </header>
+
+  <!-- FUNCTION PICKER -->
+  <div class="fn-picker" id="fnPicker">
+    <div class="fn-card active-0" onclick="selectFn(0)">
+      <div class="fn-icon">tan⁻¹</div>
+      <div class="fn-name">arctan(x)</div>
+      <div class="fn-desc">Inverse tangent</div>
+    </div>
+    <div class="fn-card" onclick="selectFn(1)">
+      <div class="fn-icon">cos</div>
+      <div class="fn-name">cos(x)</div>
+      <div class="fn-desc">Cosine function</div>
+    </div>
+    <div class="fn-card" onclick="selectFn(2)">
+      <div class="fn-icon">x²</div>
+      <div class="fn-name">x²</div>
+      <div class="fn-desc">Quadratic</div>
+    </div>
+  </div>
+
+  <!-- MAIN PANEL -->
+  <div class="panel">
+    <div class="panel-inner">
+
+      <div class="controls-row">
+        <div class="ctrl-block">
+          <label>n =</label>
+          <input type="range" id="nSlider" min="2" max="200" value="20" oninput="update()">
+          <span class="n-val" id="nVal">20</span>
+          <label>rectangles</label>
+        </div>
+        <div class="ctrl-block">
+          <label>Rule</label>
+          <div class="method-group">
+            <button class="method-btn active" onclick="setMethod('left',this)">Left</button>
+            <button class="method-btn" onclick="setMethod('mid',this)">Mid</button>
+            <button class="method-btn" onclick="setMethod('right',this)">Right</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-strip">
+        <div class="stat">
+          <div class="stat-label">Riemann Sum</div>
+          <div class="stat-value c0" id="sv-sum">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Exact Value</div>
+          <div class="stat-value c0" id="sv-exact">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">|Error|</div>
+          <div class="stat-value c0" id="sv-err">—</div>
+        </div>
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="plot"></canvas>
+      </div>
+
+      <div class="formula-strip">
+        <div class="formula-tag" id="fmtag">—</div>
+        <div class="converge-msg" id="converge-msg"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- THEORY CARDS -->
+  <div class="theory">
+    <div class="theory-grid">
+      <div class="theory-card t0">
+        <h3>arctan(x)</h3>
+        <div class="integral">∫ arctan(x) dx</div>
+        <p>Anti-derivative: x·arctan(x) − ½·ln(1+x²)</p>
+        <div class="exact-val" id="exact0">= —</div>
+      </div>
+      <div class="theory-card t1">
+        <h3>cos(x)</h3>
+        <div class="integral">∫ cos(x) dx</div>
+        <p>Anti-derivative: sin(x). Net area cancels over symmetric intervals.</p>
+        <div class="exact-val" id="exact1">= —</div>
+      </div>
+      <div class="theory-card t2">
+        <h3>x²</h3>
+        <div class="integral">∫ x² dx</div>
+        <p>Anti-derivative: x³/3. Even function — symmetric about y-axis.</p>
+        <div class="exact-val" id="exact2">= —</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>∑ Δx · f(xᵢ) → ∫ f(x) dx &nbsp;|&nbsp; Riemann Sum Visualizer &nbsp;|&nbsp; IIT Bombay</footer>
+</div>
+
+<script>
+const A = -7.5, B = 7.5;
+const COLORS = ['#4a9eff','#2ec4a0','#ff7052'];
+const FILLS  = ['rgba(74,158,255,0.18)','rgba(46,196,160,0.18)','rgba(255,112,82,0.18)'];
+const RECT_STROKES = ['rgba(74,158,255,0.5)','rgba(46,196,160,0.5)','rgba(255,112,82,0.5)'];
+
+const fns = [
+  {
+    f: x => Math.atan(x),
+    exact: (a,b) => { const F = x => x*Math.atan(x) - 0.5*Math.log(1+x*x); return F(b)-F(a); },
+    formula: '∫arctan(x)dx = x·arctan(x) − ½ln(1+x²) + C'
+  },
+  {
+    f: x => Math.cos(x),
+    exact: (a,b) => Math.sin(b) - Math.sin(a),
+    formula: '∫cos(x)dx = sin(x) + C'
+  },
+  {
+    f: x => x*x,
+    exact: (a,b) => (b**3 - a**3)/3,
+    formula: '∫x²dx = x³/3 + C'
+  }
+];
+
+let curFn = 0, n = 20, method = 'left';
+const canvas = document.getElementById('plot');
+const ctx = canvas.getContext('2d');
+
+function selectFn(i) {
+  curFn = i;
+  const cards = document.querySelectorAll('.fn-card');
+  cards.forEach((c,j) => {
+    c.className = 'fn-card';
+    if(i===j) c.className = 'fn-card active-'+i;
+  });
+  ['sv-sum','sv-exact','sv-err'].forEach(id => {
+    document.getElementById(id).className = 'stat-value c'+i;
+  });
+  update();
+}
+
+function setMethod(m, btn) {
+  method = m;
+  document.querySelectorAll('.method-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  update();
+}
+
+function riemannSum() {
+  const fn = fns[curFn].f;
+  const dx = (B-A)/n;
+  let s = 0;
+  for(let i=0;i<n;i++){
+    const xl = A+i*dx, xr = xl+dx;
+    const xs = method==='left'?xl:method==='right'?xr:(xl+xr)/2;
+    s += fn(xs)*dx;
+  }
+  return s;
+}
+
+function draw() {
+  const dpr = window.devicePixelRatio||1;
+  const W = canvas.parentElement.clientWidth;
+  const H = Math.min(360, Math.max(240, W * 0.45));
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  canvas.style.width = W+'px'; canvas.style.height = H+'px';
+  ctx.scale(dpr,dpr);
+
+  const bg = '#13141a', grid = 'rgba(255,255,255,0.05)', axis = 'rgba(255,255,255,0.2)', lbl = 'rgba(255,255,255,0.35)';
+  const pad = {l:48,r:16,t:18,b:38};
+  const pw = W-pad.l-pad.r, ph = H-pad.t-pad.b;
+
+  ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+
+  const fn = fns[curFn];
+  let yMin=Infinity,yMax=-Infinity;
+  for(let i=0;i<=600;i++){
+    const x=A+(B-A)*i/600, y=fn.f(x);
+    if(isFinite(y)){yMin=Math.min(yMin,y);yMax=Math.max(yMax,y);}
+  }
+  const yp=(yMax-yMin)*0.14||1; yMin-=yp; yMax+=yp;
+  const toX=x=>pad.l+(x-A)/(B-A)*pw;
+  const toY=y=>pad.t+(1-(y-yMin)/(yMax-yMin))*ph;
+
+  // grid
+  ctx.strokeStyle=grid; ctx.lineWidth=1;
+  for(let gx=-7.5;gx<=7.5;gx+=2.5){
+    ctx.beginPath();ctx.moveTo(toX(gx),pad.t);ctx.lineTo(toX(gx),pad.t+ph);ctx.stroke();
+  }
+  const tks=5;
+  for(let i=0;i<=tks;i++){
+    const gy=yMin+(yMax-yMin)*i/tks;
+    ctx.beginPath();ctx.moveTo(pad.l,toY(gy));ctx.lineTo(pad.l+pw,toY(gy));ctx.stroke();
+  }
+
+  // rectangles
+  const dx=(B-A)/n;
+  for(let i=0;i<n;i++){
+    const xl=A+i*dx,xr=xl+dx;
+    const xs=method==='left'?xl:method==='right'?xr:(xl+xr)/2;
+    const fv=fn.f(xs);
+    ctx.fillStyle=FILLS[curFn];
+    ctx.strokeStyle=RECT_STROKES[curFn];
+    ctx.lineWidth=0.7;
+    const rx=toX(xl),ry0=toY(0),ry1=toY(fv);
+    const rh=Math.abs(ry1-ry0), ry=Math.min(ry0,ry1);
+    ctx.beginPath();ctx.rect(rx,ry,toX(xr)-rx,rh);
+    ctx.fill();ctx.stroke();
+  }
+
+  // axes
+  ctx.strokeStyle=axis; ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(pad.l,toY(0));ctx.lineTo(pad.l+pw,toY(0));ctx.stroke();
+  ctx.beginPath();ctx.moveTo(toX(0),pad.t);ctx.lineTo(toX(0),pad.t+ph);ctx.stroke();
+
+  // function curve
+  ctx.strokeStyle=COLORS[curFn]; ctx.lineWidth=2.5; ctx.lineJoin='round';
+  ctx.beginPath();
+  let started=false;
+  for(let i=0;i<=800;i++){
+    const x=A+(B-A)*i/800,y=fn.f(x);
+    if(!isFinite(y)){started=false;continue;}
+    const px=toX(x),py=toY(y);
+    if(!started){ctx.moveTo(px,py);started=true;}else ctx.lineTo(px,py);
+  }
+  ctx.stroke();
+
+  // x labels
+  ctx.font=`11px 'DM Mono',monospace`; ctx.fillStyle=lbl; ctx.textAlign='center';
+  [-7.5,-5,-2.5,0,2.5,5,7.5].forEach(gx=>{
+    ctx.fillText(gx%1===0?gx.toFixed(0):gx.toFixed(1),toX(gx),pad.t+ph+20);
+  });
+
+  // y labels
+  ctx.textAlign='right';
+  for(let i=0;i<=tks;i++){
+    const gy=yMin+(yMax-yMin)*i/tks;
+    ctx.fillText(gy.toFixed(1),pad.l-6,toY(gy)+4);
+  }
+}
+
+function update(){
+  n=parseInt(document.getElementById('nSlider').value);
+  document.getElementById('nVal').textContent=n;
+  const sum=riemannSum();
+  const exact=fns[curFn].exact(A,B);
+  const err=Math.abs(sum-exact);
+  const c='c'+curFn;
+  document.getElementById('sv-sum').textContent=sum.toFixed(5);
+  document.getElementById('sv-exact').textContent=exact.toFixed(5);
+  document.getElementById('sv-err').textContent=err.toFixed(6);
+  document.getElementById('fmtag').textContent=fns[curFn].formula;
+  document.getElementById('converge-msg').textContent=
+    n>=100?'Converging well to exact value ✓': n>=40?'Getting closer…':'Try increasing n →';
+
+  // theory card exact values
+  fns.forEach((f,i)=>{
+    document.getElementById('exact'+i).textContent='= '+f.exact(A,B).toFixed(5);
+  });
+  draw();
+}
+
+window.addEventListener('resize',update);
+update();
+</script>
+</body>
+</html>
